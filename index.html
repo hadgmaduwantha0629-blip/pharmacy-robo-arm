@@ -576,7 +576,7 @@
               <td>Slot #${item.slot || '--'}</td>
               <td>${statusBadge}</td>
               <td style="text-align:center;">
-                <button class="btn btn-small" style="background:#1e293b; border:1px solid #38bdf8; color:#38bdf8; font-size:0.75rem; padding:4px 8px; border-radius:4px;" onclick="openQrModal('${rxId}')">
+                <button class="btn btn-small" style="background:#1e293b; border:1px solid #38bdf8; color:#38bdf8; font-size:0.75rem; padding:4px 8px; border-radius:4px;" onclick="openQrModal('${rxId}', '${key}')">
                   🔍 View QR
                 </button>
               </td>
@@ -589,9 +589,25 @@
 
     let modalQrInstance = null;
 
-    async function openQrModal(rxId) {
+    async function openQrModal(rxId, recKey) {
       const modal = document.getElementById('qrViewerModal');
-      const item = (window.historyRecordsCache && window.historyRecordsCache[rxId]) || {};
+      // Look up cached record either by rxId or record key
+      let item = {};
+      if (window.historyRecordsCache) {
+        if (recKey && window.historyRecordsCache[recKey]) {
+          item = window.historyRecordsCache[recKey];
+        } else if (window.historyRecordsCache[rxId]) {
+          item = window.historyRecordsCache[rxId];
+        } else {
+          // Scan historyRecordsCache values for matching rx
+          for (const k in window.historyRecordsCache) {
+            if (window.historyRecordsCache[k] && (window.historyRecordsCache[k].rx === rxId || k === rxId)) {
+              item = window.historyRecordsCache[k];
+              break;
+            }
+          }
+        }
+      }
 
       document.getElementById('modalRxId').innerText = rxId;
       document.getElementById('modalPatient').innerText = item.patient || 'Unknown Patient';
@@ -602,7 +618,7 @@
         ? '<span class="pill pill-dispensed">✅ Dispensed</span>' 
         : '<span class="pill pill-green">⏳ Issued / Waiting</span>';
 
-      // Fetch full prescription ticket from Firebase if possible, or construct standard payload
+      // Fetch full prescription ticket from Firebase if possible, or construct authentic payload
       let qrPayloadText = "";
       try {
         const res = await fetch(`${FIREBASE_URL}/prescriptions/${rxId}.json`);
@@ -612,12 +628,19 @@
         } else if (item.qrPayload) {
           qrPayloadText = item.qrPayload;
         } else if (rxData) {
-          const docId = rxData.doctorId || "DR-8492";
+          const docId = rxData.doctorId || (rxData.doctor && rxData.doctor.includes("David") ? "DR-1092" : "DR-8492");
           const patient = rxData.patient || item.patient || "Patient";
-          const drugCode = rxData.drugCode || "AMOX-500";
+          let drugCode = rxData.drugCode || item.drugCode;
+          if (!drugCode) {
+            const dn = (rxData.drug || item.drug || "").toLowerCase();
+            if (dn.includes("para")) drugCode = "PARA-500";
+            else if (dn.includes("ibu")) drugCode = "IBU-400";
+            else if (dn.includes("cet")) drugCode = "CET-10";
+            else drugCode = "AMOX-500";
+          }
           const drugName = rxData.drug || item.drug || "Amoxicillin 500mg";
-          const slot = rxData.slot || item.slot || 2;
-          const docInfo = registeredDoctors[docId] || { signingKey: "DR_SARAH_SECRET_KEY_9921" };
+          const slot = parseInt(rxData.slot || item.slot) || 2;
+          const docInfo = registeredDoctors[docId] || (docId === "DR-1092" ? { signingKey: "DR_DAVID_SECRET_KEY_7734" } : { signingKey: "DR_SARAH_SECRET_KEY_9921" });
           const canonical = `${rxId}|${docId}|${patient}|${drugCode}|${slot}`;
           const signature = rxData.signature || CryptoJS.HmacSHA256(canonical, docInfo.signingKey).toString().substring(0, 16);
 
@@ -634,11 +657,23 @@
       } catch(e){}
 
       if (!qrPayloadText) {
-        const docId = item.doctorId || "DR-8492";
+        let docId = item.doctorId;
+        if (!docId) {
+          const docStr = (item.doctor || "").toLowerCase();
+          if (docStr.includes("david") || docStr.includes("1092")) docId = "DR-1092";
+          else docId = "DR-8492";
+        }
         const patient = item.patient || "Patient";
-        const drugCode = item.drugCode || "AMOX-500";
-        const slot = item.slot || 2;
-        const docInfo = registeredDoctors[docId] || { signingKey: "DR_SARAH_SECRET_KEY_9921" };
+        let drugCode = item.drugCode;
+        if (!drugCode) {
+          const dn = (item.drug || "").toLowerCase();
+          if (dn.includes("para")) drugCode = "PARA-500";
+          else if (dn.includes("ibu")) drugCode = "IBU-400";
+          else if (dn.includes("cet")) drugCode = "CET-10";
+          else drugCode = "AMOX-500";
+        }
+        const slot = parseInt(item.slot) || 2;
+        const docInfo = registeredDoctors[docId] || (docId === "DR-1092" ? { signingKey: "DR_DAVID_SECRET_KEY_7734" } : { signingKey: "DR_SARAH_SECRET_KEY_9921" });
         const canonical = `${rxId}|${docId}|${patient}|${drugCode}|${slot}`;
         const signature = item.signature || CryptoJS.HmacSHA256(canonical, docInfo.signingKey).toString().substring(0, 16);
 
