@@ -268,21 +268,25 @@
           <div class="slot-header"><span class="slot-num">SLOT #1</span><span class="slot-angle">30°</span></div>
           <div class="slot-drug">Amoxicillin 500mg</div>
           <div class="slot-stock"><span>Stock</span><span class="stock-val" id="stockSlot1">-- Units</span></div>
+          <button class="btn btn-small" style="margin-top:6px; background:#1e293b; border:1px solid var(--border); font-size:0.75rem;" onclick="triggerCloudDispense(1)">🚀 Cloud Dispense</button>
         </div>
         <div class="slot-card">
           <div class="slot-header"><span class="slot-num">SLOT #2</span><span class="slot-angle">75°</span></div>
           <div class="slot-drug">Paracetamol 500mg</div>
           <div class="slot-stock"><span>Stock</span><span class="stock-val" id="stockSlot2">-- Units</span></div>
+          <button class="btn btn-small" style="margin-top:6px; background:#1e293b; border:1px solid var(--border); font-size:0.75rem;" onclick="triggerCloudDispense(2)">🚀 Cloud Dispense</button>
         </div>
         <div class="slot-card">
           <div class="slot-header"><span class="slot-num">SLOT #3</span><span class="slot-angle">120°</span></div>
           <div class="slot-drug">Ibuprofen 400mg</div>
           <div class="slot-stock"><span>Stock</span><span class="stock-val" id="stockSlot3">-- Units</span></div>
+          <button class="btn btn-small" style="margin-top:6px; background:#1e293b; border:1px solid var(--border); font-size:0.75rem;" onclick="triggerCloudDispense(3)">🚀 Cloud Dispense</button>
         </div>
         <div class="slot-card">
           <div class="slot-header"><span class="slot-num">SLOT #4</span><span class="slot-angle">160°</span></div>
           <div class="slot-drug">Cetirizine 10mg</div>
           <div class="slot-stock"><span>Stock</span><span class="stock-val" id="stockSlot4">-- Units</span></div>
+          <button class="btn btn-small" style="margin-top:6px; background:#1e293b; border:1px solid var(--border); font-size:0.75rem;" onclick="triggerCloudDispense(4)">🚀 Cloud Dispense</button>
         </div>
       </div>
 
@@ -526,6 +530,23 @@
           if (el) el.innerText = `${stock} Units`;
         }
       } catch(e){}
+    }
+
+    async function triggerCloudDispense(slot) {
+      try {
+        await fetch(`${FIREBASE_URL}/arm_command.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: "DISPENSE",
+            slot: slot,
+            requestedAt: new Date().toLocaleTimeString()
+          })
+        });
+        alert(`🚀 Cloud command sent! ESP32 Robotic Arm will dispense Slot #${slot}.`);
+      } catch(e) {
+        alert("Failed to send cloud command: " + e);
+      }
     }
 
     window.onload = async () => {
