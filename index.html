@@ -402,7 +402,9 @@
           <div id="scanReticle" style="display:none; position:absolute; width:200px; height:200px; border:2px dashed #38bdf8; border-radius:12px; pointer-events:none; box-shadow:0 0 0 9999px rgba(0,0,0,0.35);"></div>
         </div>
 
-        <div style="display:flex; gap:10px; justify-content:center;">
+        <div style="display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap;">
+          <select id="cameraSelect" onchange="changeCameraDevice()" style="background:#161b22; color:#fff; border:1px solid var(--border); padding:8px 12px; border-radius:6px; font-size:0.85rem; max-width:280px; display:none;">
+          </select>
           <button class="btn btn-green" id="btnStartWebcam" onclick="startLaptopWebcam()">▶ Start Laptop Camera</button>
           <button class="btn" style="background:#ef4444; display:none;" id="btnStopWebcam" onclick="stopLaptopWebcam()">⏹ Stop Camera</button>
         </div>
@@ -452,6 +454,51 @@
     let webcamStream = null;
     let isWebcamScanning = false;
     let lastWebcamScannedRx = null;
+    let selectedCameraDeviceId = null;
+
+    async function enumerateCameras() {
+      const select = document.getElementById('cameraSelect');
+      if (!select || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        if (videoDevices.length > 1) {
+          select.innerHTML = '';
+          videoDevices.forEach((dev, idx) => {
+            const opt = document.createElement('option');
+            opt.value = dev.deviceId;
+            const label = dev.label || `Camera ${idx + 1}`;
+            opt.text = label;
+            // Prefer built-in laptop camera (Integrated, HD Webcam, Internal) over "Link to Windows" or "Phone"
+            if (!selectedCameraDeviceId) {
+              const lower = label.toLowerCase();
+              if (lower.includes('integrated') || lower.includes('internal') || lower.includes('hd webcam') || lower.includes('built-in')) {
+                opt.selected = true;
+                selectedCameraDeviceId = dev.deviceId;
+              }
+            } else if (selectedCameraDeviceId === dev.deviceId) {
+              opt.selected = true;
+            }
+            select.appendChild(opt);
+          });
+          select.style.display = 'inline-block';
+          if (!selectedCameraDeviceId && videoDevices.length > 0) {
+            selectedCameraDeviceId = videoDevices[0].deviceId;
+          }
+        }
+      } catch(e){}
+    }
+
+    async function changeCameraDevice() {
+      const select = document.getElementById('cameraSelect');
+      selectedCameraDeviceId = select.value;
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(t => t.stop());
+        webcamStream = null;
+      }
+      isWebcamScanning = false;
+      await startLaptopWebcam();
+    }
 
     async function startLaptopWebcam() {
       try {
@@ -461,10 +508,15 @@
         const btnStart = document.getElementById('btnStartWebcam');
         const btnStop = document.getElementById('btnStopWebcam');
 
+        const constraints = {
+          video: selectedCameraDeviceId 
+            ? { deviceId: { exact: selectedCameraDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
+        };
+
         if (!webcamStream) {
-          webcamStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
-          });
+          webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+          await enumerateCameras();
         }
 
         video.srcObject = webcamStream;
