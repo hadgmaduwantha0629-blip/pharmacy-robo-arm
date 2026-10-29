@@ -391,15 +391,18 @@
         </p>
 
         <!-- Webcam Container -->
-        <div style="position:relative; width:100%; min-height:340px; background:#000; border-radius:10px; overflow:hidden; display:flex; justify-content:center; align-items:center; border:1px solid var(--border);">
-          <video id="webcamVideo" autoplay playsinline style="width:100%; max-height:360px; object-fit:contain; display:none;"></video>
+        <div style="position:relative; width:100%; min-height:360px; background:#000; border-radius:10px; overflow:hidden; display:flex; justify-content:center; align-items:center; border:1px solid var(--border);">
+          <video id="webcamVideo" autoplay playsinline muted style="width:100%; height:100%; min-height:360px; object-fit:cover; display:none; transform: scaleX(-1);"></video>
           <canvas id="webcamCanvas" style="display:none;"></canvas>
           <div id="webcamPlaceholder" style="color:var(--muted); font-size:0.9rem; text-align:center; padding:20px;">
-            <div style="font-size:2rem; margin-bottom:8px;">📷</div>
-            Click "Start Laptop Camera" to begin scanning
+            <div style="font-size:2.5rem; margin-bottom:10px;">📷</div>
+            <div>Camera is currently inactive</div>
+            <div style="font-size:0.8rem; margin-top:6px; color:#64748b;">Click "▶ Start Laptop Camera" below to activate preview</div>
           </div>
           <!-- Scanning target reticle -->
-          <div id="scanReticle" style="display:none; position:absolute; width:200px; height:200px; border:2px dashed #38bdf8; border-radius:12px; pointer-events:none; box-shadow:0 0 0 9999px rgba(0,0,0,0.35);"></div>
+          <div id="scanReticle" style="display:none; position:absolute; width:220px; height:220px; border:2px dashed #38bdf8; border-radius:14px; pointer-events:none; box-shadow:0 0 0 9999px rgba(0,0,0,0.45);">
+            <div style="position:absolute; top:8px; left:0; width:100%; text-align:center; font-size:0.75rem; color:#38bdf8; font-weight:bold; letter-spacing:1px;">ALIGN QR HERE</div>
+          </div>
         </div>
 
         <div style="display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap;">
@@ -520,13 +523,18 @@
         }
 
         video.srcObject = webcamStream;
-        await video.play();
-
         video.style.display = "block";
         placeholder.style.display = "none";
         reticle.style.display = "block";
         btnStart.style.display = "none";
         btnStop.style.display = "inline-flex";
+
+        try {
+          await video.play();
+        } catch(playErr) {
+          console.warn("Autoplay wait on metadata...", playErr);
+          video.onloadedmetadata = () => video.play();
+        }
 
         document.getElementById('webcamStatus').innerText = "📷 Laptop Camera Live - Point Prescription QR Code at the camera";
         document.getElementById('webcamStatus').style.color = "#4ade80";
@@ -536,7 +544,9 @@
           scanWebcamFrame();
         }
       } catch (err) {
-        alert("Could not access laptop webcam: " + err.message);
+        document.getElementById('webcamStatus').innerText = "❌ Camera Error: " + err.message;
+        document.getElementById('webcamStatus').style.color = "#ef4444";
+        alert("Could not access laptop webcam: " + err.message + "\n\nPlease make sure camera permissions are allowed in your browser address bar.");
       }
     }
 
