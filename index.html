@@ -340,22 +340,22 @@
 
         <!-- 4 Servo Control Sliders (Ports 3, 7, 11, 15) -->
         <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
-          <!-- Port 15: Base -->
+          <!-- Port 15: Base (270° servo) -->
           <div style="background:#090d16; border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:600; font-size:0.95rem;">Port 15 (Base Rotation)</span>
-              <span class="mono" id="disp-15" style="color:var(--accent); font-weight:700;">90°</span>
+              <span style="font-weight:600; font-size:0.95rem;">Port 15 (Base Rotation - 270°)</span>
+              <span class="mono" id="disp-15" style="color:var(--accent); font-weight:700;">135°</span>
             </div>
-            <input type="range" min="0" max="180" value="90" oninput="onCloudSlide(15, this.value)">
+            <input type="range" min="0" max="270" value="135" oninput="onCloudSlide(15, this.value)">
           </div>
 
-          <!-- Port 11: Shoulder -->
+          <!-- Port 11: Shoulder (270° servo) -->
           <div style="background:#090d16; border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:600; font-size:0.95rem;">Port 11 (Shoulder Lift)</span>
-              <span class="mono" id="disp-11" style="color:var(--accent); font-weight:700;">90°</span>
+              <span style="font-weight:600; font-size:0.95rem;">Port 11 (Shoulder Lift - 270°)</span>
+              <span class="mono" id="disp-11" style="color:var(--accent); font-weight:700;">135°</span>
             </div>
-            <input type="range" min="0" max="180" value="90" oninput="onCloudSlide(11, this.value)">
+            <input type="range" min="0" max="270" value="135" oninput="onCloudSlide(11, this.value)">
           </div>
 
           <!-- Port 7: Elbow -->
