@@ -455,15 +455,15 @@
 
         <!-- Webcam Container -->
         <div style="position:relative; width:100%; min-height:360px; background:#000; border-radius:10px; overflow:hidden; display:flex; justify-content:center; align-items:center; border:1px solid var(--border);">
-          <video id="webcamVideo" autoplay playsinline muted style="width:100%; height:100%; min-height:360px; object-fit:cover; display:none; transform: scaleX(-1);"></video>
-          <canvas id="webcamCanvas" style="display:none;"></canvas>
+          <video id="webcamVideo" autoplay playsinline muted style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;"></video>
+          <canvas id="webcamCanvas" style="width:100%; height:auto; max-height:420px; object-fit:contain; display:none; transform:scaleX(-1);"></canvas>
           <div id="webcamPlaceholder" style="color:var(--muted); font-size:0.9rem; text-align:center; padding:20px;">
             <div style="font-size:2.5rem; margin-bottom:10px;">📷</div>
             <div>Camera is currently inactive</div>
             <div style="font-size:0.8rem; margin-top:6px; color:#64748b;">Click "▶ Start Laptop Camera" below to activate preview</div>
           </div>
           <!-- Scanning target reticle -->
-          <div id="scanReticle" style="display:none; position:absolute; width:220px; height:220px; border:2px dashed #38bdf8; border-radius:14px; pointer-events:none; box-shadow:0 0 0 9999px rgba(0,0,0,0.45);">
+          <div id="scanReticle" style="display:none; position:absolute; width:220px; height:220px; border:2px dashed #38bdf8; border-radius:14px; pointer-events:none; box-shadow:0 0 0 9999px rgba(0,0,0,0.45); z-index:10;">
             <div style="position:absolute; top:8px; left:0; width:100%; text-align:center; font-size:0.75rem; color:#38bdf8; font-weight:bold; letter-spacing:1px;">ALIGN QR HERE</div>
           </div>
         </div>
@@ -586,7 +586,8 @@
         }
 
         video.srcObject = webcamStream;
-        video.style.display = "block";
+        const canvas = document.getElementById('webcamCanvas');
+        canvas.style.display = "block";
         placeholder.style.display = "none";
         reticle.style.display = "block";
         btnStart.style.display = "none";
@@ -620,12 +621,14 @@
         webcamStream = null;
       }
       const video = document.getElementById('webcamVideo');
+      const canvas = document.getElementById('webcamCanvas');
       const placeholder = document.getElementById('webcamPlaceholder');
       const reticle = document.getElementById('scanReticle');
       const btnStart = document.getElementById('btnStartWebcam');
       const btnStop = document.getElementById('btnStopWebcam');
 
-      if (video) video.style.display = "none";
+      if (video) video.pause();
+      if (canvas) canvas.style.display = "none";
       if (placeholder) placeholder.style.display = "block";
       if (reticle) reticle.style.display = "none";
       if (btnStart) btnStart.style.display = "inline-flex";
