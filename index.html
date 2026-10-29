@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart IoT Pharmacy & Robotic Arm System</title>
+  <meta name="description" content="Centralized Doctor Prescription Portal & Robotic Pharmacy Dispenser Dashboard">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- CryptoJS for HMAC-SHA256 Digital Signature -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #090d16;
+      --card: #111827;
+      --card-hover: #162032;
+      --border: #1e293b;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.2);
+      --green: #22c55e;
+      --green-glow: rgba(34, 197, 94, 0.2);
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 18px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+
+    /* Top Navigation Bar */
+    header { width: 100%; max-width: 1100px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon { width: 40px; height: 40px; background: linear-gradient(135deg, #0284c7, #38bdf8); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; box-shadow: 0 0 15px var(--accent-glow); }
+    .brand-title { font-size: 1.25rem; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+    .brand-subtitle { font-size: 0.78rem; color: var(--muted); }
+
+    /* Tab Switcher */
+    .nav-tabs { display: flex; background: #0f172a; padding: 4px; border-radius: 10px; border: 1px solid var(--border); gap: 4px; }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 8px 18px;
+      border-radius: 7px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tab-btn:hover { color: #fff; }
+    .tab-btn.active { background: #0284c7; color: #fff; box-shadow: 0 0 12px rgba(2, 132, 199, 0.4); }
+
+    /* Main Container */
+    .tab-content { width: 100%; max-width: 1100px; display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Doctor Portal Layout */
+    .doctor-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; }
+    @media (max-width: 860px) { .doctor-grid { grid-template-columns: 1fr; } }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); }
+    .card h2 { font-size: 1.15rem; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .badge { font-size: 0.75rem; background: var(--accent-glow); color: var(--accent); padding: 4px 10px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 600; }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select {
+      background: #090d16;
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .signature-card {
+      background: #0a0f1d;
+      border: 1px dashed rgba(56, 189, 248, 0.4);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sig-title { font-size: 0.78rem; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .sig-hash { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #a3e635; word-break: break-all; }
+
+    .btn {
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.92rem;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn:hover { background: #0369a1; }
+    .btn:active { transform: scale(0.99); }
+    .btn-green { background: #16a34a; }
+    .btn-green:hover { background: #15803d; }
+
+    /* Prescription Ticket */
+    .qr-ticket {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #fff;
+      padding: 18px;
+      border-radius: 12px;
+      margin: 4px auto;
+      width: 210px;
+      min-height: 210px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .rx-summary {
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
+    .pill-green { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+
+    /* Pharmacy Inventory Grid */
+    .pharmacy-layout { display: flex; flex-direction: column; gap: 20px; }
+    .slots-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    @media (max-width: 900px) { .slots-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 500px) { .slots-grid { grid-template-columns: 1fr; } }
+
+    .slot-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .slot-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: var(--accent);
+    }
+    .slot-header { display: flex; justify-content: space-between; align-items: center; }
+    .slot-num { font-size: 0.8rem; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+    .slot-angle { font-size: 0.75rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .slot-drug { font-size: 1.05rem; font-weight: 600; color: #fff; }
+    .slot-stock { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 8px; }
+    .stock-val { font-weight: 700; color: #4ade80; }
+
+    /* Audit Log Table */
+    .log-table-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { text-align: left; padding: 10px; color: var(--muted); border-bottom: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+
+  <!-- Header & Tab Controls -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🏥</div>
+      <div>
+        <div class="brand-title">Smart Medical IoT & Robotic Pharmacy</div>
+        <div class="brand-subtitle">Centralized Doctor Prescription & Autonomous Robotic Dispensing</div>
+      </div>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="tab-btn active" id="tabDoctorBtn" onclick="switchTab('doctor')">
+        👨‍⚕️ Doctor Portal
+      </button>
+      <button class="tab-btn" id="tabPharmacyBtn" onclick="switchTab('pharmacy')">
+        🤖 Pharmacy & Arm Monitor
+      </button>
+    </div>
+  </header>
+
+  <!-- TAB 1: DOCTOR PORTAL -->
+  <div class="tab-content active" id="tabDoctor">
+    <div class="doctor-grid">
+      <!-- Prescription Creation Form -->
+      <div class="card">
+        <h2>Prescribe Medication <span class="badge">Doctor ID: DR-8492</span></h2>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Patient Full Name</label>
+            <input type="text" id="patientName" value="John Doe" placeholder="e.g. John Doe">
+          </div>
+          <div class="form-group">
+            <label>Patient ID / Record</label>
+            <input type="text" id="patientId" value="PID-1042" placeholder="e.g. PID-1042">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Select Medicine (Pharmacy Slot)</label>
+            <select id="drugSelect">
+              <option value="DRUG-01" data-name="Amoxicillin 500mg" data-slot="1">Amoxicillin 500mg (Slot #1)</option>
+              <option value="DRUG-02" data-name="Paracetamol 500mg" data-slot="2" selected>Paracetamol 500mg (Slot #2)</option>
+              <option value="DRUG-03" data-name="Ibuprofen 400mg" data-slot="3">Ibuprofen 400mg (Slot #3)</option>
+              <option value="DRUG-04" data-name="Cetirizine 10mg" data-slot="4">Cetirizine 10mg (Slot #4)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Dosage & Instructions</label>
+            <input type="text" id="dosage" value="1 Tablet, 3 times daily after food" placeholder="Dosage instructions">
+          </div>
+        </div>
+
+        <!-- Cryptographic Doctor Signature Engine -->
+        <div class="signature-card">
+          <div class="sig-title">🔒 Doctor's Cryptographic Signature Engine (HMAC-SHA256)</div>
+          <div style="font-size:0.75rem; color:#cbd5e1;">Private Doctor Identity: <code style="color:#38bdf8;">DR-8492-VALIDATED</code></div>
+          <div class="sig-hash" id="liveSigHash">Calculated on ticket generation</div>
+        </div>
+
+        <button class="btn btn-green" onclick="generateSignedPrescription()">
+          ✍️ Sign & Issue QR Prescription Ticket
+        </button>
+      </div>
+
+      <!-- Ticket Display -->
+      <div class="card" style="align-items: center; text-align: center;">
+        <h2 style="width:100%;">Official Prescription Ticket</h2>
+
+        <div class="qr-ticket">
+          <div id="qrcode"></div>
+        </div>
+
+        <div class="rx-summary" style="width:100%; text-align: left;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span><strong>Status:</strong> <span class="pill pill-green">VALID & UNCLAIMED</span></span>
+            <span class="mono" id="outRxId" style="color:var(--accent);">--</span>
+          </div>
+          <div><strong>Patient:</strong> <span id="outPatient">--</span></div>
+          <div><strong>Medication:</strong> <span id="outDrug">--</span></div>
+          <div><strong>Pharmacy Slot:</strong> <span id="outSlot">--</span></div>
+          <div style="margin-top:6px; font-size:0.73rem; color:var(--muted); word-break:break-all;">
+            <strong>Doctor Signature:</strong> <span class="mono" id="outSig" style="color:#a3e635;">--</span>
+          </div>
+        </div>
+
+        <p style="font-size:0.78rem; color:var(--muted); margin-top:2px;">
+          📱 The patient presents this QR code to the robotic arm's camera to verify and dispense.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: PHARMACY & ROBOTIC ARM MONITOR -->
+  <div class="tab-content" id="tabPharmacy">
+    <div class="pharmacy-layout">
+      <!-- Live Drug Slots & Stock -->
+      <div class="slots-grid">
+        <div class="slot-card">
+          <div class="slot-header">
+            <span class="slot-num">SLOT #1</span>
+            <span class="slot-angle">Angle: 30°</span>
+          </div>
+          <div class="slot-drug">Amoxicillin 500mg</div>
+          <div class="slot-stock">
+            <span>Stock Status</span>
+            <span class="stock-val">12 Units</span>
+          </div>
+        </div>
+
+        <div class="slot-card">
+          <div class="slot-header">
+            <span class="slot-num">SLOT #2</span>
+            <span class="slot-angle">Angle: 75°</span>
+          </div>
+          <div class="slot-drug">Paracetamol 500mg</div>
+          <div class="slot-stock">
+            <span>Stock Status</span>
+            <span class="stock-val">24 Units</span>
+          </div>
+        </div>
+
+        <div class="slot-card">
+          <div class="slot-header">
+            <span class="slot-num">SLOT #3</span>
+            <span class="slot-angle">Angle: 120°</span>
+          </div>
+          <div class="slot-drug">Ibuprofen 400mg</div>
+          <div class="slot-stock">
+            <span>Stock Status</span>
+            <span class="stock-val">18 Units</span>
+          </div>
+        </div>
+
+        <div class="slot-card">
+          <div class="slot-header">
+            <span class="slot-num">SLOT #4</span>
+            <span class="slot-angle">Angle: 160°</span>
+          </div>
+          <div class="slot-drug">Cetirizine 10mg</div>
+          <div class="slot-stock">
+            <span>Stock Status</span>
+            <span class="stock-val">15 Units</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edge Vision & Arm Status Card -->
+      <div class="card">
+        <h2>Pharmacy Edge Node Status</h2>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; text-align:center;">
+          <div style="background:#090d16; padding:12px; border-radius:8px; border:1px solid var(--border);">
+            <div style="font-size:0.75rem; color:var(--muted);">ESP32-CAM Vision Stream</div>
+            <div class="mono" style="color:#4ade80; margin-top:4px;">10.172.17.127 (Online)</div>
+          </div>
+          <div style="background:#090d16; padding:12px; border-radius:8px; border:1px solid var(--border);">
+            <div style="font-size:0.75rem; color:var(--muted);">ESP32 Arm Controller</div>
+            <div class="mono" style="color:#4ade80; margin-top:4px;">10.172.17.6 (Ready)</div>
+          </div>
+          <div style="background:#090d16; padding:12px; border-radius:8px; border:1px solid var(--border);">
+            <div style="font-size:0.75rem; color:var(--muted);">Signature Verification Engine</div>
+            <div class="mono" style="color:#38bdf8; margin-top:4px;">HMAC-SHA256 Active</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Prescription Audit & Dispense History -->
+      <div class="log-table-box">
+        <h2 style="font-size:1.1rem; color:#fff;">📋 Prescription & Robotic Dispense History</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Prescription ID</th>
+              <th>Patient</th>
+              <th>Medication</th>
+              <th>Slot</th>
+              <th>Signature Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyTable">
+            <tr>
+              <td>20:45:10</td>
+              <td class="mono">RX-918231</td>
+              <td>Sarah Miller</td>
+              <td>Paracetamol 500mg</td>
+              <td>Slot #2</td>
+              <td><span class="pill pill-green">Dispensed by Arm</span></td>
+            </tr>
+            <tr>
+              <td>19:22:04</td>
+              <td class="mono">RX-840192</td>
+              <td>David Chen</td>
+              <td>Amoxicillin 500mg</td>
+              <td>Slot #1</td>
+              <td><span class="pill pill-green">Dispensed by Arm</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DOCTOR_KEY = "DR_DOC_SECURE_PRIVATE_KEY_2026";
+    const DOCTOR_ID = "DR-8492";
+    let qrInstance = null;
+
+    function switchTab(tab) {
+      document.getElementById('tabDoctorBtn').classList.toggle('active', tab === 'doctor');
+      document.getElementById('tabPharmacyBtn').classList.toggle('active', tab === 'pharmacy');
+      document.getElementById('tabDoctor').classList.toggle('active', tab === 'doctor');
+      document.getElementById('tabPharmacy').classList.toggle('active', tab === 'pharmacy');
+    }
+
+    function generateSignedPrescription() {
+      const patient = document.getElementById('patientName').value.trim() || "John Doe";
+      const pid = document.getElementById('patientId').value.trim() || "PID-1042";
+      const drugEl = document.getElementById('drugSelect');
+      const drugCode = drugEl.value;
+      const drugName = drugEl.options[drugEl.selectedIndex].getAttribute('data-name');
+      const slotNum = drugEl.options[drugEl.selectedIndex].getAttribute('data-slot');
+      const dosage = document.getElementById('dosage').value.trim();
+      const rxId = "RX-" + Date.now().toString().slice(-6);
+
+      // Canonical Message for Cryptographic Signing: rxId|doctorId|patient|drugCode|slot
+      const canonicalMessage = `${rxId}|${DOCTOR_ID}|${patient}|${drugCode}|${slotNum}`;
+
+      // HMAC-SHA256 signature generated with Doctor's secret key
+      const signature = CryptoJS.HmacSHA256(canonicalMessage, DOCTOR_KEY).toString().substring(0, 16);
+
+      const qrPayload = JSON.stringify({
+        rx: rxId,
+        doc: DOCTOR_ID,
+        p: patient,
+        d: drugCode,
+        name: drugName,
+        slot: parseInt(slotNum),
+        sig: signature
+      });
+
+      // Update UI ticket
+      document.getElementById('outRxId').innerText = rxId;
+      document.getElementById('outPatient').innerText = `${patient} (${pid})`;
+      document.getElementById('outDrug').innerText = `${drugName} - ${dosage}`;
+      document.getElementById('outSlot').innerText = `Slot #${slotNum}`;
+      document.getElementById('outSig').innerText = signature + " (HMAC-SHA256 Verified)";
+      document.getElementById('liveSigHash').innerText = `Computed HMAC Signature: ${signature}`;
+
+      // Render QR Code
+      const qrBox = document.getElementById('qrcode');
+      qrBox.innerHTML = "";
+      qrInstance = new QRCode(qrBox, {
+        text: qrPayload,
+        width: 175,
+        height: 175,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.M
+      });
+
+      // Prepend to audit log table
+      const tbody = document.getElementById('historyTable');
+      const newRow = document.createElement('tr');
+      const timeStr = new Date().toLocaleTimeString();
+      newRow.innerHTML = `
+        <td>${timeStr}</td>
+        <td class="mono">${rxId}</td>
+        <td>${patient}</td>
+        <td>${drugName}</td>
+        <td>Slot #${slotNum}</td>
+        <td><span class="pill pill-green" style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">Issued / Unclaimed</span></td>
+      `;
+      tbody.insertBefore(newRow, tbody.firstChild);
+    }
+
+    window.onload = generateSignedPrescription;
+  </script>
+</body>
+</html>
