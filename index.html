@@ -531,7 +531,6 @@
     window.onload = async () => {
       await initFirebaseDoctors();
       await fetchInventory();
-      await generateSignedPrescription();
       fetchHistory();
       setInterval(() => {
         fetchHistory();
