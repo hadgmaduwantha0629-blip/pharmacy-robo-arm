@@ -157,10 +157,42 @@
     .stock-val { font-weight: 700; color: #4ade80; }
 
     .log-table-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th { text-align: left; padding: 10px; color: var(--muted); border-bottom: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; }
-    td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 0.85rem; }
+    th { text-align: left; padding: 10px 12px; color: var(--muted); border-bottom: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; white-space: nowrap; }
+    td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; white-space: nowrap; }
     .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+
+    /* QR Viewer Modal */
+    .qr-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(5px);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    .qr-modal.active { display: flex; }
+    .qr-modal-content {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      max-width: 360px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      animation: modalFade 0.2s ease-out;
+    }
+    @keyframes modalFade { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .qr-modal-box { background: #fff; padding: 14px; border-radius: 10px; width: 200px; height: 200px; display: flex; justify-content: center; align-items: center; }
   </style>
 </head>
 <body>
@@ -297,24 +329,55 @@
       </div>
 
       <div class="log-table-box">
-        <h2 style="font-size:1.1rem; color:#fff;">📋 Real-Time Robotic Dispense History (Firebase Cloud)</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Prescription ID</th>
-              <th>Doctor</th>
-              <th>Patient</th>
-              <th>Medication</th>
-              <th>Slot</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="historyTable">
-            <tr><td colspan="7" style="text-align:center; color:#94a3b8;">Loading history from Firebase...</td></tr>
-          </tbody>
-        </table>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h2 style="font-size:1.1rem; color:#fff;">📋 Real-Time Robotic Dispense History (Firebase Cloud)</h2>
+          <span style="font-size:0.75rem; color:var(--muted); font-family:'JetBrains Mono', monospace;">Swipe horizontally on mobile 📱</span>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Prescription ID</th>
+                <th>Doctor</th>
+                <th>Patient</th>
+                <th>Medication</th>
+                <th>Slot</th>
+                <th>Status</th>
+                <th style="text-align:center;">QR Ticket</th>
+              </tr>
+            </thead>
+            <tbody id="historyTable">
+              <tr><td colspan="8" style="text-align:center; color:#94a3b8;">Loading history from Firebase...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- QR TICKET VIEWER MODAL -->
+  <div class="qr-modal" id="qrViewerModal" onclick="closeQrModal(event)">
+    <div class="qr-modal-content" onclick="event.stopPropagation()">
+      <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size:1.1rem; color:var(--accent); font-weight:700;">Prescription QR Ticket</h3>
+        <button onclick="closeQrModal()" style="background:transparent; border:none; color:var(--muted); font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
+      </div>
+      
+      <div class="qr-modal-box">
+        <div id="modalQrCode"></div>
+      </div>
+
+      <div style="width:100%; background:#090d16; border:1px solid var(--border); border-radius:8px; padding:12px; font-size:0.8rem; text-align:left; line-height:1.6;">
+        <div><strong>Rx ID:</strong> <span class="mono" id="modalRxId" style="color:#38bdf8;">--</span></div>
+        <div><strong>Patient:</strong> <span id="modalPatient">--</span></div>
+        <div><strong>Doctor:</strong> <span id="modalDoctor">--</span></div>
+        <div><strong>Drug:</strong> <span id="modalDrug">--</span></div>
+        <div><strong>Slot:</strong> <span id="modalSlot">--</span></div>
+        <div><strong>Status:</strong> <span id="modalStatus">--</span></div>
+      </div>
+
+      <button class="btn btn-green" style="width:100%;" onclick="closeQrModal()">Close Ticket</button>
     </div>
   </div>
 
@@ -967,28 +1030,103 @@
           return;
         }
 
+        let modalQrInstance = null;
+        window.historyRecordsCache = data;
+
         let rowsHtml = '';
-        Object.keys(data).reverse().slice(0, 10).forEach(key => {
+        Object.keys(data).reverse().slice(0, 15).forEach(key => {
           const item = data[key];
           const isDispensed = item.status === "DISPENSED";
           const statusBadge = isDispensed 
             ? `<span class="pill pill-dispensed">✅ Dispensed</span>`
             : `<span class="pill pill-green">⏳ Issued / Pending</span>`;
 
+          const rxId = item.rx || key;
+
           rowsHtml += `
             <tr>
               <td>${item.time || '--'}</td>
-              <td class="mono" style="color:#38bdf8;">${item.rx || '--'}</td>
+              <td class="mono" style="color:#38bdf8; font-weight:600;">${rxId}</td>
               <td>${item.doctor || 'Verified Doctor'}</td>
               <td>${item.patient || '--'}</td>
               <td>${item.drug || '--'}</td>
               <td>Slot #${item.slot || '--'}</td>
               <td>${statusBadge}</td>
+              <td style="text-align:center;">
+                <button class="btn btn-small" style="background:#1e293b; border:1px solid #38bdf8; color:#38bdf8; font-size:0.75rem; padding:4px 8px; border-radius:4px;" onclick="openQrModal('${rxId}')">
+                  🔍 View QR
+                </button>
+              </td>
             </tr>
           `;
         });
         tbody.innerHTML = rowsHtml;
       } catch(e){}
+    }
+
+    let modalQrInstance = null;
+
+    async function openQrModal(rxId) {
+      const modal = document.getElementById('qrViewerModal');
+      const item = (window.historyRecordsCache && window.historyRecordsCache[rxId]) || {};
+
+      document.getElementById('modalRxId').innerText = rxId;
+      document.getElementById('modalPatient').innerText = item.patient || 'Unknown Patient';
+      document.getElementById('modalDoctor').innerText = item.doctor || 'Registered Doctor';
+      document.getElementById('modalDrug').innerText = item.drug || 'Medication';
+      document.getElementById('modalSlot').innerText = `Slot #${item.slot || '2'}`;
+      document.getElementById('modalStatus').innerHTML = item.status === 'DISPENSED' 
+        ? '<span class="pill pill-dispensed">✅ Dispensed</span>' 
+        : '<span class="pill pill-green">⏳ Issued / Waiting</span>';
+
+      // Fetch full prescription ticket from Firebase if possible, or construct standard payload
+      let qrPayloadText = "";
+      try {
+        const res = await fetch(`${FIREBASE_URL}/prescriptions/${rxId}.json`);
+        const rxData = await res.json();
+        if (rxData) {
+          qrPayloadText = JSON.stringify({
+            rx: rxId,
+            doc: rxData.doctorId || "DR-8492",
+            p: rxData.patient || item.patient || "Patient",
+            d: rxData.drug || item.drug,
+            name: rxData.drug || item.drug,
+            slot: rxData.slot || item.slot || 2,
+            sig: rxData.signature || "CLOUDSIG"
+          });
+        }
+      } catch(e){}
+
+      if (!qrPayloadText) {
+        qrPayloadText = JSON.stringify({
+          rx: rxId,
+          doc: "DR-8492",
+          p: item.patient || "Patient",
+          name: item.drug || "Medication",
+          slot: item.slot || 2,
+          sig: "CLOUDSIG"
+        });
+      }
+
+      const qrBox = document.getElementById('modalQrCode');
+      qrBox.innerHTML = '';
+      modalQrInstance = new QRCode(qrBox, {
+        text: qrPayloadText,
+        width: 170,
+        height: 170,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.M
+      });
+
+      modal.classList.add('active');
+    }
+
+    function closeQrModal(e) {
+      if (!e || e.target.id === 'qrViewerModal' || e.target.tagName === 'BUTTON') {
+        const modal = document.getElementById('qrViewerModal');
+        modal.classList.remove('active');
+      }
     }
 
     async function fetchInventory() {
