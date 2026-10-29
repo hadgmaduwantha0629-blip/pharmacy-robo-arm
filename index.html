@@ -214,9 +214,6 @@
       <button class="tab-btn" id="tabPharmacyBtn" onclick="switchTab('pharmacy')">
         🤖 Pharmacy & Arm Monitor
       </button>
-      <button class="tab-btn" id="tabStudioBtn" onclick="switchTab('studio')">
-        🦾 Robotic Arm Studio
-      </button>
     </div>
   </header>
 
@@ -380,68 +377,6 @@
   </div>
 
   <!-- TAB 3: ROBOTIC ARM STUDIO & CLOUD RECORDER -->
-  <div class="tab-content" id="tabStudio">
-    <div style="max-width:700px; margin:0 auto; display:flex; flex-direction:column; gap:16px;">
-      <div class="card">
-        <h2>🦾 Live PCA9685 Arm Studio & Cloud Recorder</h2>
-        
-        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
-          <button class="btn btn-green" onclick="cloudCenterAll(90)">Center Home (90°)</button>
-          <button class="btn" style="background:#ef4444;" id="cloudBtnRec" onclick="toggleCloudRecord()">⏺ Record Movements</button>
-          <button class="btn" style="background:#0284c7;" id="cloudBtnPlay" onclick="playCloudRecord()">▶ Play Recording</button>
-          <button class="btn" onclick="clearCloudRecord()">Clear</button>
-        </div>
-
-        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; background:#090d16; padding:10px; border-radius:8px; border:1px solid var(--border);">
-          <span style="font-size:0.8rem; color:var(--muted); font-weight:600;">Save Recorded Motion to Cloud:</span>
-          <button class="btn btn-small" style="background:#0284c7; padding:6px 12px; font-size:0.75rem;" onclick="saveRecordingToCloud(1)">Save Slot 1</button>
-          <button class="btn btn-small" style="background:#0284c7; padding:6px 12px; font-size:0.75rem;" onclick="saveRecordingToCloud(2)">Save Slot 2</button>
-          <button class="btn btn-small" style="background:#0284c7; padding:6px 12px; font-size:0.75rem;" onclick="saveRecordingToCloud(3)">Save Slot 3</button>
-          <button class="btn btn-small" style="background:#0284c7; padding:6px 12px; font-size:0.75rem;" onclick="saveRecordingToCloud(4)">Save Slot 4</button>
-        </div>
-
-        <div style="text-align:center; font-family:'JetBrains Mono', monospace; font-size:0.82rem; color:var(--muted);" id="cloudRecStatus">Status: Ready (0 moves recorded)</div>
-
-        <!-- 4 Servo Control Sliders (Ports 3, 7, 11, 15) -->
-        <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
-          <!-- Port 15: Base -->
-          <div style="background:#090d16; border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:600; font-size:0.95rem;">Port 15 (Base Rotation)</span>
-              <span class="mono" id="disp-15" style="color:var(--accent); font-weight:700;">90°</span>
-            </div>
-            <input type="range" min="0" max="180" value="90" oninput="onCloudSlide(15, this.value)">
-          </div>
-
-          <!-- Port 11: Shoulder -->
-          <div style="background:#090d16; border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:600; font-size:0.95rem;">Port 11 (Shoulder Lift)</span>
-              <span class="mono" id="disp-11" style="color:var(--accent); font-weight:700;">90°</span>
-            </div>
-            <input type="range" min="0" max="180" value="90" oninput="onCloudSlide(11, this.value)">
-          </div>
-
-          <!-- Port 7: Elbow -->
-          <div style="background:#090d16; border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:600; font-size:0.95rem;">Port 7 (Elbow Reach)</span>
-              <span class="mono" id="disp-7" style="color:var(--accent); font-weight:700;">90°</span>
-            </div>
-            <input type="range" min="0" max="180" value="90" oninput="onCloudSlide(7, this.value)">
-          </div>
-
-          <!-- Port 3: Gripper -->
-          <div style="background:#090d16; border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:600; font-size:0.95rem;">Port 3 (Gripper Open/Close)</span>
-              <span class="mono" id="disp-3" style="color:var(--accent); font-weight:700;">90°</span>
-            </div>
-            <input type="range" min="0" max="180" value="90" oninput="onCloudSlide(3, this.value)">
-          </div>
-        </div>
-      </div>
-    </div>
   <script>
     const FIREBASE_URL = "https://pharmacy-robo-arm-default-rtdb.firebaseio.com";
     let qrInstance = null;
@@ -452,115 +387,8 @@
     function switchTab(tab) {
       document.getElementById('tabDoctorBtn').classList.toggle('active', tab === 'doctor');
       document.getElementById('tabPharmacyBtn').classList.toggle('active', tab === 'pharmacy');
-      document.getElementById('tabStudioBtn').classList.toggle('active', tab === 'studio');
       document.getElementById('tabDoctor').classList.toggle('active', tab === 'doctor');
       document.getElementById('tabPharmacy').classList.toggle('active', tab === 'pharmacy');
-      document.getElementById('tabStudio').classList.toggle('active', tab === 'studio');
-    }
-
-    // --- CLOUD ARM CONTROL & RECORDER ---
-    let cloudRecordedEvents = [];
-    let isCloudRecording = false;
-    let isCloudPlaying = false;
-    let cloudRecordStartTime = 0;
-    let cloudThrottle = {};
-
-    function onCloudSlide(port, val) {
-      document.getElementById(`disp-${port}`).innerText = val + '°';
-      const now = Date.now();
-      if (cloudThrottle[port] && now - cloudThrottle[port] < 80) return;
-      cloudThrottle[port] = now;
-      sendCloudServoMove(port, val);
-      if (isCloudRecording) {
-        cloudRecordedEvents.push({ port, angle: parseInt(val), delayMs: now - cloudRecordStartTime });
-        document.getElementById('cloudRecStatus').innerText = `🔴 Recording... (${cloudRecordedEvents.length} actions)`;
-      }
-    }
-
-    function sendCloudServoMove(pin, angle) {
-      fetch(`${FIREBASE_URL}/arm_command.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: "SET_SERVO", pin: pin, angle: parseInt(angle) })
-      }).catch(e => console.error(e));
-    }
-
-    function cloudCenterAll(angle) {
-      [3, 7, 11, 15].forEach(p => {
-        document.getElementById(`disp-${p}`).innerText = angle + '°';
-      });
-      fetch(`${FIREBASE_URL}/arm_command.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: "ALL", angle: parseInt(angle) })
-      }).catch(e => console.error(e));
-    }
-
-    function toggleCloudRecord() {
-      if (isCloudPlaying) return;
-      isCloudRecording = !isCloudRecording;
-      const btn = document.getElementById('cloudBtnRec');
-      const status = document.getElementById('cloudRecStatus');
-      if (isCloudRecording) {
-        btn.innerText = "⏹ Stop Rec";
-        cloudRecordStartTime = Date.now();
-        status.innerText = "🔴 Recording movements in real-time...";
-        status.style.color = "#ef4444";
-      } else {
-        btn.innerText = "⏺ Record Movements";
-        status.innerText = `Saved ${cloudRecordedEvents.length} movements. Ready to Play or Save.`;
-        status.style.color = "#4ade80";
-      }
-    }
-
-    function clearCloudRecord() {
-      cloudRecordedEvents = [];
-      document.getElementById('cloudRecStatus').innerText = "Status: Ready (0 moves recorded)";
-      document.getElementById('cloudRecStatus').style.color = "var(--muted)";
-    }
-
-    async function playCloudRecord() {
-      if (isCloudRecording || isCloudPlaying) return;
-      if (cloudRecordedEvents.length === 0) {
-        alert("Please record movements first!");
-        return;
-      }
-      isCloudPlaying = true;
-      const status = document.getElementById('cloudRecStatus');
-      status.innerText = "▶ Replaying motion through Firebase Cloud...";
-      status.style.color = "#38bdf8";
-
-      for (let i = 0; i < cloudRecordedEvents.length; i++) {
-        const cur = cloudRecordedEvents[i];
-        const wait = (i === 0) ? cur.delayMs : (cur.delayMs - cloudRecordedEvents[i - 1].delayMs);
-        if (wait > 0) await new Promise(r => setTimeout(r, wait));
-        document.getElementById(`disp-${cur.port}`).innerText = cur.angle + '°';
-        sendCloudServoMove(cur.port, cur.angle);
-      }
-      isCloudPlaying = false;
-      status.innerText = "Playback finished. Ready.";
-      status.style.color = "#4ade80";
-    }
-
-    async function saveRecordingToCloud(slot) {
-      if (cloudRecordedEvents.length === 0) {
-        alert("Please record some movements first!");
-        return;
-      }
-      try {
-        const status = document.getElementById('cloudRecStatus');
-        status.innerText = `Saving Slot #${slot} to Firebase Cloud...`;
-        await fetch(`${FIREBASE_URL}/slot_trajectories/slot_${slot}.json`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cloudRecordedEvents)
-        });
-        status.innerText = `✅ Trajectory for Slot #${slot} saved to Firebase Cloud!`;
-        status.style.color = "#38bdf8";
-        alert(`Successfully saved ${cloudRecordedEvents.length} movements to Firebase Cloud for Slot #${slot}!`);
-      } catch(e) {
-        alert("Cloud save failed: " + e);
-      }
     }
 
     // Auto-seed registered doctors in Firebase if not present
