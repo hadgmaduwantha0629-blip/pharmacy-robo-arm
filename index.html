@@ -442,10 +442,9 @@
       document.getElementById('tabStudio').classList.toggle('active', tab === 'studio');
       document.getElementById('tabWebcam').classList.toggle('active', tab === 'webcam');
 
-      if (tab === 'webcam') {
+      // Keep webcam running seamlessly in the background so navigating across tabs never kills the feed
+      if (tab === 'webcam' && (!webcamStream || !isWebcamScanning)) {
         startLaptopWebcam();
-      } else {
-        stopLaptopWebcam();
       }
     }
 
@@ -462,9 +461,11 @@
         const btnStart = document.getElementById('btnStartWebcam');
         const btnStop = document.getElementById('btnStopWebcam');
 
-        webcamStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
-        });
+        if (!webcamStream) {
+          webcamStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
+          });
+        }
 
         video.srcObject = webcamStream;
         await video.play();
@@ -478,8 +479,10 @@
         document.getElementById('webcamStatus').innerText = "📷 Laptop Camera Live - Point Prescription QR Code at the camera";
         document.getElementById('webcamStatus').style.color = "#4ade80";
 
-        isWebcamScanning = true;
-        scanWebcamFrame();
+        if (!isWebcamScanning) {
+          isWebcamScanning = true;
+          scanWebcamFrame();
+        }
       } catch (err) {
         alert("Could not access laptop webcam: " + err.message);
       }
