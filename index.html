@@ -267,22 +267,22 @@
         <div class="slot-card">
           <div class="slot-header"><span class="slot-num">SLOT #1</span><span class="slot-angle">30°</span></div>
           <div class="slot-drug">Amoxicillin 500mg</div>
-          <div class="slot-stock"><span>Stock</span><span class="stock-val">12 Units</span></div>
+          <div class="slot-stock"><span>Stock</span><span class="stock-val" id="stockSlot1">-- Units</span></div>
         </div>
         <div class="slot-card">
           <div class="slot-header"><span class="slot-num">SLOT #2</span><span class="slot-angle">75°</span></div>
           <div class="slot-drug">Paracetamol 500mg</div>
-          <div class="slot-stock"><span>Stock</span><span class="stock-val">24 Units</span></div>
+          <div class="slot-stock"><span>Stock</span><span class="stock-val" id="stockSlot2">-- Units</span></div>
         </div>
         <div class="slot-card">
           <div class="slot-header"><span class="slot-num">SLOT #3</span><span class="slot-angle">120°</span></div>
           <div class="slot-drug">Ibuprofen 400mg</div>
-          <div class="slot-stock"><span>Stock</span><span class="stock-val">18 Units</span></div>
+          <div class="slot-stock"><span>Stock</span><span class="stock-val" id="stockSlot3">-- Units</span></div>
         </div>
         <div class="slot-card">
           <div class="slot-header"><span class="slot-num">SLOT #4</span><span class="slot-angle">160°</span></div>
           <div class="slot-drug">Cetirizine 10mg</div>
-          <div class="slot-stock"><span>Stock</span><span class="stock-val">15 Units</span></div>
+          <div class="slot-stock"><span>Stock</span><span class="stock-val" id="stockSlot4">-- Units</span></div>
         </div>
       </div>
 
@@ -477,14 +477,41 @@
           `;
         });
         tbody.innerHTML = rowsHtml;
+    async function fetchInventory() {
+      try {
+        const res = await fetch(`${FIREBASE_URL}/inventory.json`);
+        let data = await res.json();
+        if (!data) {
+          data = {
+            "slot_1": { stock: 12 },
+            "slot_2": { stock: 24 },
+            "slot_3": { stock: 18 },
+            "slot_4": { stock: 15 }
+          };
+          await fetch(`${FIREBASE_URL}/inventory.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+        }
+        for (let i = 1; i <= 4; i++) {
+          const item = data[`slot_${i}`];
+          const stock = (item && item.stock !== undefined) ? item.stock : 20;
+          const el = document.getElementById(`stockSlot${i}`);
+          if (el) el.innerText = `${stock} Units`;
+        }
       } catch(e){}
     }
 
     window.onload = async () => {
       await initFirebaseDoctors();
+      await fetchInventory();
       await generateSignedPrescription();
       fetchHistory();
-      setInterval(fetchHistory, 5000);
+      setInterval(() => {
+        fetchHistory();
+        fetchInventory();
+      }, 3000);
     };
   </script>
 </body>
