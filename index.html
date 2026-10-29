@@ -384,6 +384,7 @@
 
       // 2. Save Prescription to Firebase Realtime Database
       try {
+        const timeNow = new Date().toLocaleTimeString();
         await fetch(`${FIREBASE_URL}/prescriptions/${rxId}.json`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -395,10 +396,26 @@
             drug: drugName,
             slot: slotNum,
             signature: signature,
-            status: "UNCLAIMED",
-            issuedAt: new Date().toISOString()
+            status: "WAITING_SCAN",
+            issuedAt: timeNow
           })
         });
+
+        // Also add immediately to the audit history log as "ISSUED / WAITING TO SCAN"
+        await fetch(`${FIREBASE_URL}/dispense_history/${rxId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            time: timeNow,
+            rx: rxId,
+            doctor: docInfo.name,
+            patient: patient,
+            drug: drugName,
+            slot: slotNum,
+            status: "ISSUED"
+          })
+        });
+        fetchHistory();
       } catch(e) {
         console.error("Firebase sync error:", e);
       }
@@ -464,6 +481,11 @@
         let rowsHtml = '';
         Object.keys(data).reverse().slice(0, 10).forEach(key => {
           const item = data[key];
+          const isDispensed = item.status === "DISPENSED";
+          const statusBadge = isDispensed 
+            ? `<span class="pill pill-dispensed">✅ Dispensed</span>`
+            : `<span class="pill pill-green">⏳ Issued / Pending</span>`;
+
           rowsHtml += `
             <tr>
               <td>${item.time || '--'}</td>
@@ -472,11 +494,14 @@
               <td>${item.patient || '--'}</td>
               <td>${item.drug || '--'}</td>
               <td>Slot #${item.slot || '--'}</td>
-              <td><span class="pill pill-dispensed">✅ Dispensed</span></td>
+              <td>${statusBadge}</td>
             </tr>
           `;
         });
         tbody.innerHTML = rowsHtml;
+      } catch(e){}
+    }
+
     async function fetchInventory() {
       try {
         const res = await fetch(`${FIREBASE_URL}/inventory.json`);
