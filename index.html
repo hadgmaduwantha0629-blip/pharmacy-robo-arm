@@ -634,9 +634,11 @@
             doctorId: docId,
             doctorName: docInfo.name,
             patient: patient,
+            drugCode: drugCode,
             drug: drugName,
             slot: slotNum,
             signature: signature,
+            qrPayload: qrPayload,
             status: "WAITING_SCAN",
             issuedAt: timeNow
           })
@@ -649,10 +651,14 @@
           body: JSON.stringify({
             time: timeNow,
             rx: rxId,
+            doctorId: docId,
             doctor: docInfo.name,
             patient: patient,
+            drugCode: drugCode,
             drug: drugName,
             slot: slotNum,
+            signature: signature,
+            qrPayload: qrPayload,
             status: "ISSUED"
           })
         });
@@ -773,27 +779,49 @@
       try {
         const res = await fetch(`${FIREBASE_URL}/prescriptions/${rxId}.json`);
         const rxData = await res.json();
-        if (rxData) {
+        if (rxData && rxData.qrPayload) {
+          qrPayloadText = rxData.qrPayload;
+        } else if (item.qrPayload) {
+          qrPayloadText = item.qrPayload;
+        } else if (rxData) {
+          const docId = rxData.doctorId || "DR-8492";
+          const patient = rxData.patient || item.patient || "Patient";
+          const drugCode = rxData.drugCode || "AMOX-500";
+          const drugName = rxData.drug || item.drug || "Amoxicillin 500mg";
+          const slot = rxData.slot || item.slot || 2;
+          const docInfo = registeredDoctors[docId] || { signingKey: "DR_SARAH_SECRET_KEY_9921" };
+          const canonical = `${rxId}|${docId}|${patient}|${drugCode}|${slot}`;
+          const signature = rxData.signature || CryptoJS.HmacSHA256(canonical, docInfo.signingKey).toString().substring(0, 16);
+
           qrPayloadText = JSON.stringify({
             rx: rxId,
-            doc: rxData.doctorId || "DR-8492",
-            p: rxData.patient || item.patient || "Patient",
-            d: rxData.drug || item.drug,
-            name: rxData.drug || item.drug,
-            slot: rxData.slot || item.slot || 2,
-            sig: rxData.signature || "CLOUDSIG"
+            doc: docId,
+            p: patient,
+            d: drugCode,
+            name: drugName,
+            slot: slot,
+            sig: signature
           });
         }
       } catch(e){}
 
       if (!qrPayloadText) {
+        const docId = item.doctorId || "DR-8492";
+        const patient = item.patient || "Patient";
+        const drugCode = item.drugCode || "AMOX-500";
+        const slot = item.slot || 2;
+        const docInfo = registeredDoctors[docId] || { signingKey: "DR_SARAH_SECRET_KEY_9921" };
+        const canonical = `${rxId}|${docId}|${patient}|${drugCode}|${slot}`;
+        const signature = item.signature || CryptoJS.HmacSHA256(canonical, docInfo.signingKey).toString().substring(0, 16);
+
         qrPayloadText = JSON.stringify({
           rx: rxId,
-          doc: "DR-8492",
-          p: item.patient || "Patient",
+          doc: docId,
+          p: patient,
+          d: drugCode,
           name: item.drug || "Medication",
-          slot: item.slot || 2,
-          sig: "CLOUDSIG"
+          slot: slot,
+          sig: signature
         });
       }
 
